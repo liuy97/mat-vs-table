@@ -1,3 +1,9 @@
+[![npm version](https://badge.fury.io/js/mat-vs-table.svg)](https://badge.fury.io/js/mat-vs-table)
+[![Angular Style Guide](https://mgechev.github.io/angular2-style-guide/images/badge.svg)](https://angular.io/styleguide)
+
+#### Quick links
+[StackBlitz Template](https://stackblitz.com/edit/mat-vs-table)
+
 # MatTable with Virtual scroll support
 
 add support for virtual scrolling in angular mat-table
@@ -39,4 +45,18 @@ import { MatVsTableModule } from 'mat-vs-table';
 })
 export class AppModule { }
 
+```
+
+```html
+<cdk-virtual-scroll-viewport class="demo-viewport demo-table-container" itemSize="48">
+
+  <table mat-vs-table [dataSource]="matTableDataSource" matSort>
+
+    <!-- Column definitions -->
+    
+    <tr mat-header-row *matHeaderRowDef="matTableDataSourceColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: matTableDataSourceColumns;"></tr>
+  </table>
+
+</cdk-virtual-scroll-viewport>
 ```
