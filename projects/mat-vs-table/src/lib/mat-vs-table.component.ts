@@ -45,7 +45,7 @@ import {
   RenderRow
 } from '@angular/cdk/table';
 import {coerceBooleanProperty} from '@angular/cdk/coercion';
-import {CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
+import {CdkVirtualScrollViewport, CdkVirtualForOfContext} from '@angular/cdk/scrolling';
 import {DOCUMENT} from '@angular/common';
 import {Platform} from '@angular/cdk/platform';
 
@@ -361,10 +361,10 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
     let i = rangeLen;
     while (i--) {
       const view = this._rowOutlet.viewContainer.get(i + renderedStartIndex) as
-          EmbeddedViewRef<any> | null;
+          EmbeddedViewRef<CdkVirtualForOfContext<T>> | null;
       let j = view ? view.rootNodes.length : 0;
       while (j--) {
-        totalSize += this.getSize(orientation, view.rootNodes[j]);
+        totalSize += this.getSize(orientation, view!.rootNodes[j]);
       }
     }
 
@@ -808,7 +808,7 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
     if (dataStream === undefined) {
       throw getTableUnknownDataSourceError();
     }
-  
+
     this.dataStream = dataStream as any;
     this._renderChangeSubscription = dataStream
         .pipe(takeUntil(this._onDestroy))
@@ -963,6 +963,9 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
 
   /** Adds native table sections (e.g. tbody) and moves the row outlets into them. */
   private _applyNativeTableSections() {
+    // @breaking-change 8.0.0 remove the `|| document` once the `_document` is a required param.
+    const documentRef = this._document || document;
+    const documentFragment = documentRef.createDocumentFragment();
     const sections = [
       {tag: 'thead', outlet: this._headerRowOutlet},
       {tag: 'tbody', outlet: this._rowOutlet},
@@ -970,12 +973,13 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
     ];
 
     for (const section of sections) {
-      // @breaking-change 8.0.0 remove the `|| document` once the `_document` is a required param.
-      const documentRef = this._document || document;
       const element = documentRef.createElement(section.tag);
       element.appendChild(section.outlet.elementRef.nativeElement);
-      this._elementRef.nativeElement.appendChild(element);
+      documentFragment.appendChild(element);
     }
+
+    // Use a DocumentFragment so we don't hit the DOM on each iteration.
+    this._elementRef.nativeElement.appendChild(documentFragment);
   }
 
   /**
