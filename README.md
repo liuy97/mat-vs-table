@@ -9,7 +9,9 @@
 add support for virtual scrolling in angular mat-table
 
 ## Dependencies
-* [Angular](https://angular.io) (*requires* Angular 7 or higher)
+* mat-vs-table@8.0.0 [Angular](https://angular.io) (*requires* Angular 8 or higher)
+
+* mat-vs-table@0.1.1 [Angular](https://angular.io) (*requires* Angular 7)
 
 ## Installation
 Install above dependencies via *npm*.
