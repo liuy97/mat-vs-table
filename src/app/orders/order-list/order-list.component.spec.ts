@@ -1,20 +1,20 @@
 import { async, ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { MatVsTableComponent } from './mat-vs-table.component';
+import { OrderListComponent } from './order-list.component';
 
-describe('MatVsTableComponent', () => {
-  let component: MatVsTableComponent<any>;
-  let fixture: ComponentFixture<MatVsTableComponent<any>>;
+describe('OrderListComponent', () => {
+  let component: OrderListComponent;
+  let fixture: ComponentFixture<OrderListComponent>;
 
   beforeEach(async(() => {
     TestBed.configureTestingModule({
-      declarations: [ MatVsTableComponent ]
+      declarations: [ OrderListComponent ]
     })
     .compileComponents();
   }));
 
   beforeEach(() => {
-    fixture = TestBed.createComponent(MatVsTableComponent);
+    fixture = TestBed.createComponent(OrderListComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

@@ -1,62 +1,27 @@
-[![npm version](https://badge.fury.io/js/mat-vs-table.svg)](https://badge.fury.io/js/mat-vs-table)
-[![Angular Style Guide](https://mgechev.github.io/angular2-style-guide/images/badge.svg)](https://angular.io/styleguide)
+# Demo
 
-#### Quick links
-[StackBlitz Template](https://stackblitz.com/edit/mat-vs-table)
+This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 8.0.1.
 
-# MatTable with Virtual scroll support
+## Development server
 
-add support for virtual scrolling in angular mat-table
+Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
 
-## Dependencies
-* [Angular](https://angular.io) (*requires* Angular 7 or higher)
+## Code scaffolding
 
-## Installation
-Install above dependencies via *npm*.
+Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
 
-Now install `mat-vs-table` via:
-```shell
-npm install --save mat-vs-table
-```
+## Build
 
----
+Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory. Use the `--prod` flag for a production build.
 
-Once installed you need to import the main module:
-```js
-import { MatVsTableModule } from 'mat-vs-table';
-```
+## Running unit tests
 
-```js
-import { MatVsTableModule } from 'mat-vs-table';
+Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
 
-@NgModule({
-  declarations: [
-    AppComponent,
-  ],
-  imports: [
-    MatVsTableModule,
-    MatTableModule,
-    MatSortModule,
-    BrowserAnimationsModule,
-    BrowserModule
-  ],
-  providers: [],
-  bootstrap: [AppComponent]
-})
-export class AppModule { }
+## Running end-to-end tests
 
-```
+Run `ng e2e` to execute the end-to-end tests via [Protractor](http://www.protractortest.org/).
 
-```html
-<cdk-virtual-scroll-viewport class="demo-viewport demo-table-container" itemSize="48">
+## Further help
 
-  <table mat-vs-table [dataSource]="matTableDataSource" matSort>
-
-    <!-- Column definitions -->
-    
-    <tr mat-header-row *matHeaderRowDef="matTableDataSourceColumns"></tr>
-    <tr mat-row *matRowDef="let row; columns: matTableDataSourceColumns;"></tr>
-  </table>
-
-</cdk-virtual-scroll-viewport>
-```
+To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI README](https://github.com/angular/angular-cli/blob/master/README.md).

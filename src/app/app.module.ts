@@ -1,24 +1,20 @@
 import { BrowserModule } from '@angular/platform-browser';
-import { NgModule } from '@angular/core';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
-import { MatTableModule, MatCheckboxModule, MatSortModule } from '@angular/material';
+import { NgModule } from '@angular/core';
 
+import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
-import { MatVsTableModule } from 'projects/mat-vs-table/src/lib/mat-vs-table.module';
-import { TableDemoComponent } from './table/table-demo';
+import { SharedModule } from './shared.module';
 
 @NgModule({
   declarations: [
-    AppComponent,
-    TableDemoComponent
+    AppComponent
   ],
   imports: [
-    MatVsTableModule,
-    MatTableModule,
-    MatCheckboxModule,
-    MatSortModule,
     BrowserAnimationsModule,
-    BrowserModule
+    BrowserModule,
+    SharedModule,
+    AppRoutingModule
   ],
   providers: [],
   bootstrap: [AppComponent]

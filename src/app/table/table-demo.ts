@@ -22,7 +22,7 @@ export class TableDemoComponent implements OnInit, AfterViewInit {
   matTableDataSourceColumns = ['select', 'userId', 'userName', 'progress', 'color'];
   selection = new SelectionModel<UserData>(true, []);
 
-  @ViewChild(MatSort) sort: MatSort;
+  @ViewChild(MatSort, {static: false}) sort: MatSort;
 
   constructor() {
     this.matTableDataSource.sortingDataAccessor = (data: UserData, property: string) => {
