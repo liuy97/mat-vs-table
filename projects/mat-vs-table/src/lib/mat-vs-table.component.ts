@@ -23,10 +23,11 @@ import {
   SkipSelf,
   Inject,
   NgZone,
+  ContentChild
 } from '@angular/core';
 import {CollectionViewer, DataSource, ListRange, isDataSource} from '@angular/cdk/collections';
 import {Direction, Directionality} from '@angular/cdk/bidi';
-import {BehaviorSubject, Observable, of as observableOf, Subject, Subscription} from 'rxjs';
+import {BehaviorSubject, Observable, of as observableOf, Subject, Subscription, isObservable} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
 import {
   BaseRowDef,
@@ -39,12 +40,16 @@ import {
   DataRowOutlet,
   HeaderRowOutlet,
   FooterRowOutlet,
+  NoDataRowOutlet,
   RowContext,
   StickyStyler,
   RowOutlet,
-  RenderRow
+  RenderRow,
+  CdkNoDataRow,
+  CdkTable,
+  CDK_TABLE
 } from '@angular/cdk/table';
-import {coerceBooleanProperty} from '@angular/cdk/coercion';
+import {BooleanInput, coerceBooleanProperty} from '@angular/cdk/coercion';
 import {CdkVirtualScrollViewport, CdkVirtualForOfContext} from '@angular/cdk/scrolling';
 import {DOCUMENT} from '@angular/common';
 import {Platform} from '@angular/cdk/platform';
@@ -87,8 +92,14 @@ abstract class RowViewRef<T> extends EmbeddedViewRef<RowContext<T>> { }
   host: {
     'class': 'mat-table',
   },
+  providers: [
+    {provide: CdkTable, useExisting: MatVsTableComponent},
+    {provide: CDK_TABLE, useExisting: MatVsTableComponent}
+  ],
   encapsulation: ViewEncapsulation.None,
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  // See note on CdkTable for explanation on why this uses the default change detection strategy.
+  // tslint:disable-next-line:validate-decorators
+  changeDetection: ChangeDetectionStrategy.Default,
 })
 export class MatVsTableComponent<T> implements AfterContentChecked, CollectionViewer, OnDestroy, OnInit {
   private _document: Document;
@@ -143,21 +154,21 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
   /**
    * Column definitions that were defined outside of the direct content children of the table.
    * These will be defined when, e.g., creating a wrapper around the cdkTable that has
-   * column definitions as *it's* content child.
+   * column definitions as *its* content child.
    */
   private _customColumnDefs = new Set<CdkColumnDef>();
 
   /**
    * Data row definitions that were defined outside of the direct content children of the table.
    * These will be defined when, e.g., creating a wrapper around the cdkTable that has
-   * built-in data rows as *it's* content child.
+   * built-in data rows as *its* content child.
    */
   private _customRowDefs = new Set<CdkRowDef<T>>();
 
   /**
    * Header row definitions that were defined outside of the direct content children of the table.
    * These will be defined when, e.g., creating a wrapper around the cdkTable that has
-   * built-in header rows as *it's* content child.
+   * built-in header rows as *its* content child.
    */
   private _customHeaderRowDefs = new Set<CdkHeaderRowDef>();
 
@@ -210,6 +221,9 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
    */
   protected stickyCssClass: string = 'mat-table-sticky';
 
+  /** Whether the no data row is currently showing anything. */
+  private _isShowingNoDataRow = false;
+
   /**
    * Tracking function that will be used to check the differences in data changes. Used similarly
    * to `ngFor` `trackBy` function. Optimize row operations by identifying a row based on its data
@@ -222,7 +236,7 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
   }
   set trackBy(fn: TrackByFunction<T>) {
     if (isDevMode() && fn != null && typeof fn !== 'function' && <any>console &&
-      <any>console.warn) {
+        <any>console.warn) {
       console.warn(`trackBy must be a function, but received ${JSON.stringify(fn)}.`);
     }
     this._trackByFn = fn;
@@ -290,38 +304,46 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
    * @docs-private
    */
   viewChange: BehaviorSubject<{ start: number, end: number }> =
-    new BehaviorSubject<{ start: number, end: number }>({ start: 0, end: Number.MAX_VALUE });
+      new BehaviorSubject<{ start: number, end: number }>({ start: 0, end: Number.MAX_VALUE });
 
   // Outlets in the table's template where the header, data rows, and footer will be inserted.
   @ViewChild(DataRowOutlet, { static: true }) _rowOutlet: DataRowOutlet;
   @ViewChild(HeaderRowOutlet, { static: true }) _headerRowOutlet: HeaderRowOutlet;
   @ViewChild(FooterRowOutlet, { static: true }) _footerRowOutlet: FooterRowOutlet;
+  @ViewChild(NoDataRowOutlet, { static: true }) _noDataRowOutlet: NoDataRowOutlet;
 
   /**
    * The column definitions provided by the user that contain what the header, data, and footer
    * cells should render for each column.
    */
-  @ContentChildren(CdkColumnDef) _contentColumnDefs: QueryList<CdkColumnDef>;
+  @ContentChildren(CdkColumnDef, { descendants: true }) _contentColumnDefs: QueryList<CdkColumnDef>;
 
   /** Set of data row definitions that were provided to the table as content children. */
-  @ContentChildren(CdkRowDef) _contentRowDefs: QueryList<CdkRowDef<T>>;
+  @ContentChildren(CdkRowDef, { descendants: true }) _contentRowDefs: QueryList<CdkRowDef<T>>;
 
   /** Set of header row definitions that were provided to the table as content children. */
-  @ContentChildren(CdkHeaderRowDef) _contentHeaderRowDefs: QueryList<CdkHeaderRowDef>;
+  @ContentChildren(CdkHeaderRowDef, {
+    descendants: true
+  }) _contentHeaderRowDefs: QueryList<CdkHeaderRowDef>;
 
   /** Set of footer row definitions that were provided to the table as content children. */
-  @ContentChildren(CdkFooterRowDef) _contentFooterRowDefs: QueryList<CdkFooterRowDef>;
+  @ContentChildren(CdkFooterRowDef, {
+    descendants: true
+  }) _contentFooterRowDefs: QueryList<CdkFooterRowDef>;
+
+  /** Row definition that will only be rendered if there's no data in the table. */
+  @ContentChild(CdkNoDataRow) _noDataRow: CdkNoDataRow;
 
   constructor(
-    protected readonly _differs: IterableDiffers,
-    protected readonly _changeDetectorRef: ChangeDetectorRef,
-    protected readonly _elementRef: ElementRef,
-    @Attribute('role') role: string,
-    @Optional() protected readonly _dir: Directionality,
-    @SkipSelf() protected _viewport: CdkVirtualScrollViewport,
-    protected readonly ngZone: NgZone,
-    @Inject(DOCUMENT) _document: any,
-    private _platform: Platform) {
+      protected readonly _differs: IterableDiffers,
+      protected readonly _changeDetectorRef: ChangeDetectorRef,
+      protected readonly _elementRef: ElementRef,
+      @Attribute('role') role: string,
+      @Optional() protected readonly _dir: Directionality,
+      @SkipSelf() protected _viewport: CdkVirtualScrollViewport,
+      protected readonly ngZone: NgZone,
+      @Inject(DOCUMENT) _document: any,
+      private _platform: Platform) {
     if (!role) {
       this._elementRef.nativeElement.setAttribute('role', 'grid');
     }
@@ -367,7 +389,7 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
     let i = rangeLen;
     while (i--) {
       const view = this._rowOutlet.viewContainer.get(i + renderedStartIndex) as
-        EmbeddedViewRef<CdkVirtualForOfContext<T>> | null;
+          EmbeddedViewRef<CdkVirtualForOfContext<T>> | null;
       let j = view ? view.rootNodes.length : 0;
       while (j--) {
         totalSize += this.getSize(orientation, view!.rootNodes[j]);
@@ -443,6 +465,7 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
 
   ngOnDestroy() {
     this._rowOutlet.viewContainer.clear();
+    this._noDataRowOutlet.viewContainer.clear();
     this._headerRowOutlet.viewContainer.clear();
     this._footerRowOutlet.viewContainer.clear();
 
@@ -476,17 +499,17 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
     const viewContainer = this._rowOutlet.viewContainer;
 
     changes.forEachOperation(
-      (record: IterableChangeRecord<RenderRow<T>>, prevIndex: number | null,
-        currentIndex: number | null) => {
-        if (record.previousIndex == null) {
-          this._insertRow(record.item, currentIndex!);
-        } else if (currentIndex == null) {
-          viewContainer.remove(prevIndex!);
-        } else {
-          const view = <RowViewRef<T>>viewContainer.get(prevIndex!);
-          viewContainer.move(view!, currentIndex);
-        }
-      });
+        (record: IterableChangeRecord<RenderRow<T>>, prevIndex: number | null,
+         currentIndex: number | null) => {
+          if (record.previousIndex == null) {
+            this._insertRow(record.item, currentIndex!);
+          } else if (currentIndex == null) {
+            viewContainer.remove(prevIndex!);
+          } else {
+            const view = <RowViewRef<T>>viewContainer.get(prevIndex!);
+            viewContainer.move(view!, currentIndex);
+          }
+        });
 
     // Update the meta context of a row's context data (index, count, first, last, ...)
     this._updateRowIndexContext();
@@ -498,33 +521,8 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
       rowView.context.$implicit = record.item.data;
     });
 
+    this._updateNoDataRow();
     this.updateStickyColumnStyles();
-  }
-
-  /**
-   * Sets the header row definition to be used. Overrides the header row definition gathered by
-   * using `ContentChild`, if one exists. Sets a flag that will re-render the header row after the
-   * table's content is checked.
-   * @docs-private
-   * @deprecated Use `addHeaderRowDef` and `removeHeaderRowDef` instead
-   * @breaking-change 8.0.0
-   */
-  setHeaderRowDef(headerRowDef: CdkHeaderRowDef) {
-    this._customHeaderRowDefs = new Set([headerRowDef]);
-    this._headerRowDefChanged = true;
-  }
-
-  /**
-   * Sets the footer row definition to be used. Overrides the footer row definition gathered by
-   * using `ContentChild`, if one exists. Sets a flag that will re-render the footer row after the
-   * table's content is checked.
-   * @docs-private
-   * @deprecated Use `addFooterRowDef` and `removeFooterRowDef` instead
-   * @breaking-change 8.0.0
-   */
-  setFooterRowDef(footerRowDef: CdkFooterRowDef) {
-    this._customFooterRowDefs = new Set([footerRowDef]);
-    this._footerRowDefChanged = true;
   }
 
   /** Adds a column definition that was not included as part of the content children. */
@@ -641,7 +639,7 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
     // Clear the left and right positioning from all columns in the table across all rows since
     // sticky columns span across all table sections (header, data, footer)
     this._stickyStyler.clearStickyPositioning(
-      [...headerRows, ...dataRows, ...footerRows], ['left', 'right']);
+        [...headerRows, ...dataRows, ...footerRows], ['left', 'right']);
 
     // Update the sticky styles for each header row depending on the def's sticky state
     headerRows.forEach((headerRow, i) => {
@@ -715,7 +713,7 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
    * `(T, CdkRowDef)` pair.
    */
   private _getRenderRowsForData(
-    data: T, dataIndex: number, cache?: WeakMap<CdkRowDef<T>, RenderRow<T>[]>): RenderRow<T>[] {
+      data: T, dataIndex: number, cache?: WeakMap<CdkRowDef<T>, RenderRow<T>[]>): RenderRow<T>[] {
     const rowDefs = this._getRowDefs(data, dataIndex);
 
     return rowDefs.map(rowDef => {
@@ -734,7 +732,8 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
   private _cacheColumnDefs() {
     this._columnDefsByName.clear();
 
-    const columnDefs = mergeQueryListAndSet(this._contentColumnDefs, this._customColumnDefs);
+    const columnDefs = mergeArrayAndSet(
+        this._getOwnDefs(this._contentColumnDefs), this._customColumnDefs);
     columnDefs.forEach(columnDef => {
       if (this._columnDefsByName.has(columnDef.name)) {
         throw getTableDuplicateColumnNameError(columnDef.name);
@@ -745,12 +744,12 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
 
   /** Update the list of all available row definitions that can be used. */
   private _cacheRowDefs() {
-    this._headerRowDefs =
-      mergeQueryListAndSet(this._contentHeaderRowDefs, this._customHeaderRowDefs);
-    this._footerRowDefs =
-      mergeQueryListAndSet(this._contentFooterRowDefs, this._customFooterRowDefs);
-    this._rowDefs =
-      mergeQueryListAndSet(this._contentRowDefs, this._customRowDefs);
+    this._headerRowDefs = mergeArrayAndSet(
+        this._getOwnDefs(this._contentHeaderRowDefs), this._customHeaderRowDefs);
+    this._footerRowDefs = mergeArrayAndSet(
+        this._getOwnDefs(this._contentFooterRowDefs), this._customFooterRowDefs);
+    this._rowDefs = mergeArrayAndSet(
+        this._getOwnDefs(this._contentRowDefs), this._customRowDefs);
 
     // After all row definitions are determined, find the row definition to be considered default.
     const defaultRowDefs = this._rowDefs.filter(def => !def.when);
@@ -823,7 +822,7 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
 
     if (isDataSource(this.dataSource)) {
       dataStream = this.dataSource.connect(this);
-    } else if (this.dataSource instanceof Observable) {
+    } else if (isObservable(this.dataSource)) {
       dataStream = this.dataSource;
     } else if (Array.isArray(this.dataSource)) {
       dataStream = observableOf(this.dataSource);
@@ -911,7 +910,7 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
       rowDefs = this._rowDefs.filter(def => !def.when || def.when(dataIndex, data));
     } else {
       let rowDef =
-        this._rowDefs.find(def => def.when && def.when(dataIndex, data)) || this._defaultRowDef;
+          this._rowDefs.find(def => def.when && def.when(dataIndex, data)) || this._defaultRowDef;
       if (rowDef) {
         rowDefs.push(rowDef);
       }
@@ -940,7 +939,7 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
    * of where to place the new row template in the outlet.
    */
   private _renderRow(
-    outlet: RowOutlet, rowDef: BaseRowDef, index: number, context: RowContext<T> = {}) {
+      outlet: RowOutlet, rowDef: BaseRowDef, index: number, context: RowContext<T> = {}) {
     // TODO(andrewseguin): enforce that one outlet was instantiated from createEmbeddedView
     outlet.viewContainer.createEmbeddedView(rowDef.template, context, index);
 
@@ -997,15 +996,19 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
   private _applyNativeTableSections() {
     const documentFragment = this._document.createDocumentFragment();
     const sections = [
-      { tag: 'thead', outlet: this._headerRowOutlet },
-      { tag: 'tbody', outlet: this._rowOutlet },
-      { tag: 'tfoot', outlet: this._footerRowOutlet },
+      { tag: 'thead', outlets: [this._headerRowOutlet] },
+      { tag: 'tbody', outlets: [this._rowOutlet, this._noDataRowOutlet] },
+      { tag: 'tfoot', outlets: [this._footerRowOutlet] },
     ];
 
     for (const section of sections) {
       const element = this._document.createElement(section.tag);
       element.setAttribute('role', 'rowgroup');
-      element.appendChild(section.outlet.elementRef.nativeElement);
+
+      for (const outlet of section.outlets) {
+        element.appendChild(outlet.elementRef.nativeElement);
+      }
+
       documentFragment.appendChild(element);
     }
 
@@ -1060,17 +1063,37 @@ export class MatVsTableComponent<T> implements AfterContentChecked, CollectionVi
   private _setupStickyStyler() {
     const direction: Direction = this._dir ? this._dir.value : 'ltr';
     this._stickyStyler = new StickyStyler(
-      this._isNativeHtmlTable, this.stickyCssClass, direction, this._platform.isBrowser);
+        this._isNativeHtmlTable, this.stickyCssClass, direction, this._platform.isBrowser);
     (this._dir ? this._dir.change : observableOf<Direction>())
-      .pipe(takeUntil(this._onDestroy))
-      .subscribe(value => {
-        this._stickyStyler.direction = value;
-        this.updateStickyColumnStyles();
-      });
+        .pipe(takeUntil(this._onDestroy))
+        .subscribe(value => {
+          this._stickyStyler.direction = value;
+          this.updateStickyColumnStyles();
+        });
   }
+
+  /** Filters definitions that belong to this table from a QueryList. */
+  private _getOwnDefs<I extends {_table?: any}>(items: QueryList<I>): I[] {
+    return items.filter(item => !item._table || item._table === this);
+  }
+
+  /** Creates or removes the no data row, depending on whether any data is being shown. */
+  private _updateNoDataRow() {
+    if (this._noDataRow) {
+      const shouldShow = this._rowOutlet.viewContainer.length === 0;
+
+      if (shouldShow !== this._isShowingNoDataRow) {
+        const container = this._noDataRowOutlet.viewContainer;
+        shouldShow ? container.createEmbeddedView(this._noDataRow.templateRef) : container.clear();
+        this._isShowingNoDataRow = shouldShow;
+      }
+    }
+  }
+
+  static ngAcceptInputType_multiTemplateDataRows: BooleanInput;
 }
 
-/** Utility function that gets a merged list of the entries in a QueryList and values of a Set. */
-function mergeQueryListAndSet<T>(queryList: QueryList<T>, set: Set<T>): T[] {
-  return queryList.toArray().concat(Array.from(set));
+/** Utility function that gets a merged list of the entries in an array and values of a Set. */
+function mergeArrayAndSet<T>(array: T[], set: Set<T>): T[] {
+  return array.concat(Array.from(set));
 }

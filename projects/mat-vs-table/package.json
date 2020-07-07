@@ -1,6 +1,6 @@
 {
   "name": "mat-vs-table",
-  "version": "9.0.0",
+  "version": "10.0.0",
   "license": "MIT",
   "homepage": "https://github.com/liuy97/mat-vs-table",
   "author": {
@@ -20,10 +20,9 @@
     "library"
   ],
   "peerDependencies": {
-    "@angular/common": ">=9.0.0 || 9.0.0-rc.3",
-    "@angular/core": ">=9.0.0 || 9.0.0-rc.3",
-    "@angular/material": ">=9.0.0 || 9.0.0-rc.3",
-    "@angular/cdk": ">=9.0.0 || 9.0.0-rc.3",
+    "@angular/common": ">=10.0.0",
+    "@angular/core": ">=10.0.0",
+    "@angular/cdk": ">=10.0.0",
     "rxjs": ">=6.5.3"
   }
 }
